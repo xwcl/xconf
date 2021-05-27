@@ -1,0 +1,6 @@
+either_one = 1
+should_foo = false
+
+[collections.first]
+name = "First collection"
+extended = true
