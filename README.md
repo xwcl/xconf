@@ -66,3 +66,9 @@ class DemoCommand(xconf.Command):
 ```
 
 Note that commands must subclass `xconf.Command` *and* apply the `@xconf.config` decorator.
+
+## License
+
+All code outside `xconf/vendor/` is provided under the terms of the [MIT License](./LICENSE), except for `demo.py` and `demo_command.conf.toml`, which are released into the public domain for you to build off of.
+
+Note that code under `xconf/vendor/` is used under the terms of the licenses listed there.
