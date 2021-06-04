@@ -89,11 +89,9 @@ def list_fields(cls, prefix='', help_suffix=''):
     for fld in dataclasses.fields(cls):
         name = fld.name
         field_help = fld.metadata.get('help', '')
-        if fld.default is not None:
-            if not isinstance(fld.default, dataclasses._MISSING_TYPE):
-                field_help += f' (default: {repr(fld.default)})'
+        if not isinstance(fld.default, dataclasses._MISSING_TYPE):
+            field_help += f' (default: {repr(fld.default)})'
         field_help += help_suffix
-        # import IPython; IPython.embed()
         field_type_str = format_field_type(fld.type)
         prefixed_name = prefix + name
         yield prefixed_name, f'{field_type_str}', field_help
