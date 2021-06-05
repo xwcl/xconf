@@ -8,7 +8,7 @@ import toml
 import logging
 from functools import partial
 import typing
-from .vendor.py310_dataclasses import dataclass, is_dataclass
+from .vendor.py310_dataclasses import dataclass, is_dataclass, asdict
 from .vendor import dacite
 from .vendor import py310_dataclasses as dataclasses
 from collections import defaultdict
