@@ -6,6 +6,7 @@ import re
 import sys
 import toml
 import logging
+from enum import Enum
 from functools import partial
 import typing
 from .vendor.py310_dataclasses import dataclass, is_dataclass, asdict
@@ -211,7 +212,7 @@ class Command:
             return dacite.from_dict(
                 cls,
                 raw_config,
-                config=dacite.Config(strict=True, type_hooks=TYPE_HOOKS)
+                config=dacite.Config(strict=True, type_hooks=TYPE_HOOKS, cast=[Enum])
             )
         except (dacite.UnexpectedDataError, dacite.MissingValueError) as e:
             log.error(f"Applying configuration failed with: {e}")
