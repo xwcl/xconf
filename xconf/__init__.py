@@ -113,8 +113,8 @@ def list_fields(cls, prefix='', help_suffix=''):
                     for k, v, h in list_fields(mtype, prefix=f'{prefix}{name}.', help_suffix=help_suffix+f' <{mtype.__name__}>'):
                         yield k, v, h
                 elif dacite.types.is_generic_collection(mtype):
-                    x, = dacite.types.extract_generic(mtype)
-                    for k, v, h in list_fields(x, prefix=f'{prefix}{name}[#].', help_suffix=help_suffix+f' <{x.__name__}>'):
+                    collection_entry_type, = dacite.types.extract_generic(mtype)
+                    for k, v, h in list_fields(collection_entry_type, prefix=f'{prefix}{name}[#].', help_suffix=help_suffix+f' <{collection_entry_type.__name__}>'):
                         yield k, v, h
                 else:
                     # no need for additional docs for primitive types
