@@ -74,35 +74,47 @@ def field(*args, **kwargs):
         metadata = {'help': kwargs.pop('help')}
     return dataclasses.field(*args, metadata=metadata, **kwargs)
 
+def type_name_or_choices(the_type):
+    if dacite.types.is_subclass(the_type, Enum):
+        return ', '.join([repr(x.value) for x in the_type])
+    return the_type.__name__
+
 def format_field_type(field_type):
     if hasattr(field_type, '__args__'):
         if dacite.types.is_optional(field_type):
-            return f'(optional) {field_type.__args__[0].__name__}'
+            return f'(optional) {format_field_type(field_type.__args__[0])}'
         elif dacite.types.is_union(field_type):
             name = ''
         else:
-            name = field_type.__name__
-        members = ', '.join([x.__name__ for x in field_type.__args__])
+            name = type_name_or_choices(field_type)
+        members = ', '.join([type_name_or_choices(x) for x in field_type.__args__])
         return f'{name}[{members}]'
-    return field_type.__name__
+    return type_name_or_choices(field_type)
 
 def list_fields(cls, prefix='', help_suffix=''):
     for fld in dataclasses.fields(cls):
         name = fld.name
         field_help = fld.metadata.get('help', '')
         if not isinstance(fld.default, dataclasses._MISSING_TYPE):
-            field_help += f' (default: {repr(fld.default)})'
+            if isinstance(fld.default, Enum):
+                default_value = repr(fld.default.value)
+            else:
+                default_value = repr(fld.default)
+            field_help += f' (default: {default_value})'
         field_help += help_suffix
         field_type_str = format_field_type(fld.type)
         prefixed_name = prefix + name
         yield prefixed_name, f'{field_type_str}', field_help
-        
-        
-        if dacite.types.is_union(fld.type) and not dacite.types.is_optional(fld.type):
+
+        if dacite.types.is_union(fld.type): # and not dacite.types.is_optional(fld.type):
             members = dacite.types.extract_generic(fld.type)
             for mtype in members:
                 if dataclasses.is_dataclass(mtype):
                     for k, v, h in list_fields(mtype, prefix=f'{prefix}{name}.', help_suffix=help_suffix+f' <{mtype.__name__}>'):
+                        yield k, v, h
+                elif dacite.types.is_generic_collection(mtype):
+                    x, = dacite.types.extract_generic(mtype)
+                    for k, v, h in list_fields(x, prefix=f'{prefix}{name}[#].', help_suffix=help_suffix+f' <{x.__name__}>'):
                         yield k, v, h
                 else:
                     # no need for additional docs for primitive types
