@@ -9,14 +9,50 @@ import logging
 from enum import Enum
 from functools import partial
 import typing
+from toml import encoder
 from .vendor.py310_dataclasses import dataclass, is_dataclass, asdict
 from .vendor import dacite
+from .vendor.dacite import UnexpectedDataError, MissingValueError
 from .vendor import py310_dataclasses as dataclasses
 from collections import defaultdict
 
 log = logging.getLogger(__name__)
 
 config = partial(dataclass, kw_only=True)
+
+def convert_bool(x):
+    if x in (True, False):
+        return x
+    if x.lower() in ('true', 't', '1'):
+        return True
+    elif x.lower() in ('false', 'f', '0'):
+        return False
+    else:
+        raise ValueError(f"Cannot convert {x} to boolean")
+
+
+def convert_list_of_str(x):
+    if ',' in x:
+        return [y.strip() for y in x.split(',')]
+    else:
+        return [x.strip()]
+
+TYPE_HOOKS = {
+    bool: convert_bool,
+    int: int,
+    float: float,
+    list[str]: convert_list_of_str,
+}
+from_dict = partial(dacite.from_dict, config=dacite.Config(strict=True, type_hooks=TYPE_HOOKS, cast=[Enum]))
+
+
+class TomlEnumEncoder(encoder.TomlEncoder):
+    """Encode to TOML, replacing values that are Enum subclasses with their value attribute"""
+
+    def dump_value(self, v):
+        if isinstance(v, Enum):
+            return super().dump_value(v.value)
+        return super().dump_value(v)
 
 def load_config(filepath):
     log.debug(f'Loading config from {filepath}')
@@ -43,30 +79,6 @@ class NestedDefaultDict(defaultdict):
 def fail(message):
     log.error(message)
     sys.exit(1)
-
-def convert_bool(x):
-    if x in (True, False):
-        return x
-    if x.lower() in ('true', 't', '1'):
-        return True
-    elif x.lower() in ('false', 'f', '0'):
-        return False
-    else:
-        raise ValueError(f"Cannot convert {x} to boolean")
-
-
-def convert_list_of_str(x):
-    if ',' in x:
-        return [y.strip() for y in x.split(',')]
-    else:
-        return [x.strip()]
-
-TYPE_HOOKS = {
-    bool: convert_bool,
-    int: int,
-    float: float,
-    list[str]: convert_list_of_str,
-}
 
 def field(*args, **kwargs):
     metadata = None
@@ -155,6 +167,7 @@ class Dispatcher:
             subp.add_argument("-c", "--config-file", help=f"Path to config file (default: {default_config_file})", default=default_config_file)
             subp.add_argument("-h", "--help", action='store_true', help="Print usage information")
             subp.add_argument("-v", "--verbose", action='store_true', help="Enable debug logging")
+            subp.add_argument("--dump-config", action='store_true', help="Dump final configuration state as TOML and exit")
             subp.add_argument("vars", nargs='*', help="Config variables set with 'key.key.key=value' notation")
         
         args = parser.parse_args()
@@ -166,6 +179,9 @@ class Dispatcher:
             sys.exit(0)
         self.configure_logging('DEBUG' if args.verbose else 'INFO')
         command = args.command_cls.from_args(args)
+        if args.dump_config:
+            print(toml.dumps(command.config_to_dict(), encoder=TomlEnumEncoder()))
+            sys.exit(0)
         return command.main()
 
 def print_help(cls, parser):
@@ -211,6 +227,9 @@ class Command:
         name = re.sub(r'(?<!^)(?=[A-Z])', '_', cls.__name__).lower()
         return name
 
+    def config_to_dict(self):
+        return dataclasses.asdict(self)
+
     @classmethod
     def from_args(cls, parsed_args):
         raw_config = _get_config_data(parsed_args.config_file, parsed_args.vars)
@@ -221,12 +240,8 @@ class Command:
         else:
             log.setLevel(logging.INFO)
         try:
-            return dacite.from_dict(
-                cls,
-                raw_config,
-                config=dacite.Config(strict=True, type_hooks=TYPE_HOOKS, cast=[Enum])
-            )
-        except (dacite.UnexpectedDataError, dacite.MissingValueError) as e:
+            return from_dict(cls, raw_config)
+        except (UnexpectedDataError, MissingValueError) as e:
             log.error(f"Applying configuration failed with: {e}")
             from pprint import pformat
             log.error(f"File and arguments provided this configuration:\n\n{pformat(raw_config)}\n")
