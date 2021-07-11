@@ -89,7 +89,13 @@ def field(*args, **kwargs):
 def type_name_or_choices(the_type):
     if dacite.types.is_subclass(the_type, Enum):
         return ', '.join([repr(x.value) for x in the_type])
-    return the_type.__name__
+    elif hasattr(the_type, '__name__'):
+        return the_type.__name__
+    elif dacite.types.is_union(the_type):
+        members = dacite.types.extract_generic(the_type)
+        return '(' + ', '.join([type_name_or_choices(m) for m in members]) + ')'
+    else:
+        return repr(the_type)
 
 def format_field_type(field_type):
     if hasattr(field_type, '__args__'):
@@ -105,44 +111,72 @@ def format_field_type(field_type):
 
 def list_fields(cls, prefix='', help_suffix=''):
     for fld in dataclasses.fields(cls):
-        name = fld.name
-        field_help = fld.metadata.get('help', '')
-        if not isinstance(fld.default, dataclasses._MISSING_TYPE):
-            if isinstance(fld.default, Enum):
-                default_value = repr(fld.default.value)
-            else:
-                default_value = repr(fld.default)
-            field_help += f' (default: {default_value})'
-        field_help += help_suffix
-        field_type_str = format_field_type(fld.type)
-        prefixed_name = prefix + name
-        yield prefixed_name, f'{field_type_str}', field_help
+        for result in list_one_dataclass_field(fld, prefix, help_suffix):
+            yield result
 
-        if dacite.types.is_union(fld.type): # and not dacite.types.is_optional(fld.type):
-            members = dacite.types.extract_generic(fld.type)
-            for mtype in members:
-                if dataclasses.is_dataclass(mtype):
-                    for k, v, h in list_fields(mtype, prefix=f'{prefix}{name}.', help_suffix=help_suffix+f' <{mtype.__name__}>'):
-                        yield k, v, h
-                elif dacite.types.is_generic_collection(mtype):
-                    collection_entry_type, = dacite.types.extract_generic(mtype)
-                    for k, v, h in list_fields(collection_entry_type, prefix=f'{prefix}{name}[#].', help_suffix=help_suffix+f' <{collection_entry_type.__name__}>'):
-                        yield k, v, h
-                else:
-                    # no need for additional docs for primitive types
-                    continue
-        elif dacite.types.is_generic_collection(fld.type):
-            if dacite.types.extract_origin_collection(fld.type) is list:
-                # already output above for collection
-                continue
+def list_one_dataclass_field(fld, prefix, help_suffix):
+    name = fld.name
+    field_help = fld.metadata.get('help', '')
+    fld_type = fld.type
+    default = fld.default
+    for result in list_one_field(name, fld_type, field_help, prefix, help_suffix, default=default):
+        yield result
+
+def list_one_field(name, fld_type, field_help, prefix, help_suffix, default=dataclasses._MISSING_TYPE):
+    if not isinstance(default, dataclasses._MISSING_TYPE):
+        if isinstance(default, Enum):
+            default_value = repr(default.value)
+        else:
+            default_value = repr(default)
+        field_help += f' (default: {default_value})'
+    field_help += help_suffix
+    field_type_str = format_field_type(fld_type)
+    prefixed_name = prefix + name
+    yield prefixed_name, f'{field_type_str}', field_help
+
+    if dacite.types.is_union(fld_type): # and not dacite.types.is_optional(fld.type):
+        members = dacite.types.extract_generic(fld_type)
+        for mtype in members:
+            if dataclasses.is_dataclass(mtype):
+                for k, v, h in list_fields(mtype, prefix=f'{prefix}{name}.', help_suffix=help_suffix+f' <{mtype.__name__}>'):
+                    yield k, v, h
+            elif dacite.types.is_generic_collection(mtype):
+                collection_entry_type, = dacite.types.extract_generic(mtype)
+                for k, v, h in list_fields(collection_entry_type, prefix=f'{prefix}{name}[#].', help_suffix=help_suffix+f' <{format_field_type(collection_entry_type)}>'):
+                    yield k, v, h
             else:
-                key_type, val_type = dacite.types.extract_generic(fld.type)
+                # no need for additional docs for primitive types
+                continue
+    elif dacite.types.is_generic_collection(fld_type):
+        if dacite.types.extract_origin_collection(fld_type) is list:
+            # already output above for collection
+            pass
+        else:
+            # dict types
+            key_type, val_type = dacite.types.extract_generic(fld_type)
+            if dataclasses.is_dataclass(val_type):
+                # value is a dataclass, recurse into its fields
                 for k, v, h in list_fields(val_type, prefix=f'{prefix}{name}.<{key_type.__name__}>.'):
                     yield k, v, h
-        else:
-            if dataclasses.is_dataclass(fld.type):
-                for k, v, h in list_fields(fld.type, prefix=f'{prefix}{name}.'):
-                    yield k, v, h
+            else:
+                if dacite.types.is_union(val_type):
+                    members = dacite.types.extract_generic(val_type)
+                    if any(dataclasses.is_dataclass(m) for m in members):
+                        for mtype in members:
+                            if dataclasses.is_dataclass(val_type):
+                                for k, v, h in list_fields(val_type, prefix=f'{prefix}{name}.<{key_type.__name__}>.', help_suffix=help_suffix+f' <{format_field_type(mtype)}>'):
+                                    yield k, v, h
+                            else:
+                                yield f"{prefixed_name}.<{format_field_type(key_type)}>", format_field_type(mtype), field_help
+                    else:
+                        yield f"{prefixed_name}.<{format_field_type(key_type)}>", format_field_type(val_type), field_help
+                elif dacite.types.is_generic_collection(val_type):
+                    # TODO: when the value itself is generic, recurse into it
+                    pass
+    else:
+        if dataclasses.is_dataclass(fld_type):
+            for k, v, h in list_fields(fld_type, prefix=f'{prefix}{name}.'):
+                yield k, v, h
             
 
 class Dispatcher:
