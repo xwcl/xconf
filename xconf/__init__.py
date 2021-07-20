@@ -66,7 +66,7 @@ class NestedDefaultDict(defaultdict):
 
     def __repr__(self):
         return repr(self.to_plain_dict())
-    
+
     def to_plain_dict(self):
         out = dict()
         for key, value in self.items():
@@ -177,7 +177,7 @@ def list_one_field(name, fld_type, field_help, prefix, help_suffix, default=data
         if dataclasses.is_dataclass(fld_type):
             for k, v, h in list_fields(fld_type, prefix=f'{prefix}{name}.'):
                 yield k, v, h
-            
+
 
 class Dispatcher:
     def __init__(self, commands):
@@ -203,7 +203,7 @@ class Dispatcher:
             subp.add_argument("-v", "--verbose", action='store_true', help="Enable debug logging")
             subp.add_argument("--dump-config", action='store_true', help="Dump final configuration state as TOML and exit")
             subp.add_argument("vars", nargs='*', help="Config variables set with 'key.key.key=value' notation")
-        
+
         args = parser.parse_args()
         if args.command_cls is None:
             parser.print_help()
@@ -239,18 +239,48 @@ def _get_config_data(config_file_path, cli_args):
         raw_config = load_config(config_file_path)
     except FileNotFoundError:
         raw_config = {}
-    raw_config = NestedDefaultDict(raw_config)
 
     for non_flag_arg in cli_args:
-        lhs, rhs = non_flag_arg.split('=', 1)
-        key = lhs.split('.')
+        lhs, rhs = non_flag_arg.split('=', 1)  # something.foo.bar=value
+        key = lhs.split('.') # [something, foo, bar]
         base = raw_config
-        for subkey in key[:-1]:
-            base = base[subkey]
-        base[key[-1]] = rhs
-    
+        for idx, subkey in enumerate(key):
+            if idx == len(key) - 1:
+                # instead of creating containers, last key will assign a value
+                last_key = True
+            else:
+                last_key = False
+            # if key includes index, it's a key and a hint there's a list
+            idx_match = re.match(r'(.+)\[(\d+)\]', subkey)
+            if idx_match is not None:
+                subkey, idx_str = idx_match.groups()
+                idx = int(idx_str)
+                print(f"{idx=}")
+
+            # not using defaultdict any more, so explicitly create
+            # the containers down to the level where we assign the rhs
+            if idx_match is not None:
+                print(subkey, idx)
+                if subkey not in base:
+                    base[subkey] = []
+                # lists have to be padded to size with dicts (nested lists are unsupported)
+                while len(base[subkey]) <= idx:
+                    base[subkey].append({})
+                print(base[subkey])
+            elif subkey not in base:
+                base[subkey] = {}
+
+            if last_key and idx_match is not None:
+                base[subkey][idx] = rhs
+            elif last_key:
+                base[subkey] = rhs
+            elif idx_match is not None:
+                base = base[subkey][idx]
+            else:
+                base = base[subkey]
+
+
     log.debug(f'Config attributes provided: {raw_config}')
-    raw_config = raw_config.to_plain_dict()
     return raw_config
 
 @dataclass
