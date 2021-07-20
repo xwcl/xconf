@@ -1,6 +1,15 @@
 either_one = 1
 should_foo = false
+number_list = [1,2,3]
 
 [collections.first]
 name = "First collection"
 extended = true
+
+[[sequence]]
+name = "Foo"
+extended = true
+
+[[sequence]]
+name = "Bar"
+extended = false

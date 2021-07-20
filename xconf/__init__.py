@@ -31,17 +31,19 @@ def convert_bool(x):
         raise ValueError(f"Cannot convert {x} to boolean")
 
 
-def convert_list_of_str(x):
+def convert_list(x, convert_type=lambda x: x):
     if ',' in x:
-        return [y.strip() for y in x.split(',')]
+        return [convert_type(y.strip()) for y in x.split(',')]
     else:
-        return [x.strip()]
+        return [convert_type(x.strip())]
 
 TYPE_HOOKS = {
     bool: convert_bool,
     int: int,
     float: float,
-    list[str]: convert_list_of_str,
+    list[str]: partial(convert_list, convert_type=str),
+    list[int]: partial(convert_list, convert_type=int),
+    list[float]: partial(convert_list, convert_type=float),
 }
 from_dict = partial(dacite.from_dict, config=dacite.Config(strict=True, type_hooks=TYPE_HOOKS, cast=[Enum]))
 
@@ -255,18 +257,15 @@ def _get_config_data(config_file_path, cli_args):
             if idx_match is not None:
                 subkey, idx_str = idx_match.groups()
                 idx = int(idx_str)
-                print(f"{idx=}")
 
             # not using defaultdict any more, so explicitly create
             # the containers down to the level where we assign the rhs
             if idx_match is not None:
-                print(subkey, idx)
                 if subkey not in base:
                     base[subkey] = []
                 # lists have to be padded to size with dicts (nested lists are unsupported)
                 while len(base[subkey]) <= idx:
                     base[subkey].append({})
-                print(base[subkey])
             elif subkey not in base:
                 base[subkey] = {}
 

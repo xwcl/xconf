@@ -7,7 +7,7 @@ An example of how to use `xconf.Command`, `xconf.field`, and `xconf.config` is i
 ```
 $ python demo.py demo_command -h
 demo_command: Demo command
-usage: demo.py demo_command [-c CONFIG_FILE] [-h] [-v] [vars ...]
+usage: demo.py demo_command [-c CONFIG_FILE] [-h] [-v] [--dump-config] [vars ...]
 
 positional arguments:
   vars                  Config variables set with 'key.key.key=value' notation
@@ -17,6 +17,7 @@ optional arguments:
                         Path to config file (default: demo_command.conf.toml)
   -h, --help            Print usage information
   -v, --verbose         Enable debug logging
+  --dump-config         Dump final configuration state as TOML and exit
 configuration keys:
   collections
       dict[str, ExtendedThingie]
@@ -28,44 +29,34 @@ configuration keys:
       [int, str]
   should_bar
       bool
+     (default: False)
   should_foo
       bool
     Whether demo should foo
+  number_list
+      list[int]
+    List of favorite numbers
+  sequence
+      list[ExtendedThingie]
 ```
 
 ### Default config file
 
-The command name, `demo_command`, is generated from the class name and used to find a default configuration file in the current directory.
+The command name, `demo_command`, is generated from the class name and used to find a default configuration file (`demo_command.conf.toml`) in the current directory.
+
+### Providing arguments at the command line
+
+Any configuration key from the help output can be supplied on the command line in a `dotted.name=value` format.
+
+For lists of primitive types (`str`, `int`, `float`), you can just use commas to separate the values on the right hand side of the `=`. Example: `number_list=1,2,3`.
+
+To override a single entry in a list, use `some_name[#]` or `dotted[#].name=value` where `#` is an integer index will work. Example: `number_list[0]=99`
+
+String values are bare (i.e. no quotation marks around `value`). Boolean values are case-insensitive `true`, `t`, or 1 for True, `false`, `f`, or 0 for False.
 
 ### Structuring the command
 
-These options are defined by a hierarchy of dataclasses. (For uninteresting reasons, they aren't *strictly speaking* `import dataclass` dataclasses.)
-
-```python
-@xconf.config
-class Thingie:
-    name : str = xconf.field()
-
-@xconf.config
-class ExtendedThingie(Thingie):
-    extended : bool = xconf.field()
-
-@xconf.config
-class DemoCommand(xconf.Command):
-    """Demo command"""
-    collections : dict[str, ExtendedThingie] = xconf.field()
-    either_one : typing.Union[int, str] = xconf.field()
-    should_bar : bool = xconf.field()
-    should_foo : bool = xconf.field(help="Whether demo should foo")
-
-    def main(self):
-        print('Got these collections:', self.collections)
-        print('either_one =', self.either_one)
-        print('should_bar =', self.should_bar)
-        print('should_foo =', self.should_foo)
-```
-
-Note that commands must subclass `xconf.Command` *and* apply the `@xconf.config` decorator.
+See `demo.py` for an example. Note that commands must subclass `xconf.Command` *and* apply the `@xconf.config` decorator. Options are defined by a hierarchy of dataclasses. (For uninteresting reasons, they aren't *strictly speaking* `import dataclass` dataclasses.)
 
 ## License
 

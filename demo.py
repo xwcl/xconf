@@ -19,6 +19,7 @@ class DemoCommand(xconf.Command):
     either_one : typing.Union[int, str] = xconf.field()
     should_bar : bool = xconf.field(default=False)
     should_foo : bool = xconf.field(help="Whether demo should foo")
+    number_list : list[int] = xconf.field(help="List of favorite numbers")
     sequence : list[ExtendedThingie] = xconf.field(default_factory=list)
 
     def main(self):
@@ -26,6 +27,7 @@ class DemoCommand(xconf.Command):
         print('either_one =', self.either_one)
         print('should_bar =', self.should_bar)
         print('should_foo =', self.should_foo)
+        print('number_list =', self.number_list)
         print('sequence =', self.sequence)
 
 import coloredlogs
