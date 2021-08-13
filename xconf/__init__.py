@@ -199,8 +199,13 @@ class Dispatcher:
             subp = subps.add_parser(command_cls.name, add_help=False)
             names_to_subparsers[command_cls.name] = subp
             subp.set_defaults(command_cls=command_cls)
-            default_config_file = f"{command_cls.name}.conf.toml"
-            subp.add_argument("-c", "--config-file", help=f"Path to config file (default: {default_config_file})", default=default_config_file)
+            default_config_file = command_cls.default_config_name
+            subp.add_argument(
+                "-c", "--config-file",
+                action="append",
+                default=[],
+                help=f"Path to config file, repeat to merge multiple (default: {default_config_file})",
+            )
             subp.add_argument("-h", "--help", action='store_true', help="Print usage information")
             subp.add_argument("-v", "--verbose", action='store_true', help="Enable debug logging")
             subp.add_argument("--dump-config", action='store_true', help="Dump final configuration state as TOML and exit")
@@ -236,11 +241,17 @@ def print_help(cls, parser):
             )
             print(wrapped)
 
-def _get_config_data(config_file_path, cli_args):
-    try:
-        raw_config = load_config(config_file_path)
-    except FileNotFoundError:
+def _get_config_data(default_config_name, config_file_paths, cli_args):
+    if len(config_file_paths):
         raw_config = {}
+        for config_file_path in config_file_paths:
+            loaded_config = load_config(config_file_path)
+            raw_config.update(loaded_config)
+    else:
+        try:
+            raw_config = load_config(default_config_name)
+        except FileNotFoundError:
+            raw_config = {}
 
     for non_flag_arg in cli_args:
         lhs, rhs = non_flag_arg.split('=', 1)  # something.foo.bar=value
@@ -289,13 +300,17 @@ class Command:
     def name(cls):
         name = re.sub(r'(?<!^)(?=[A-Z])', '_', cls.__name__).lower()
         return name
+    @classmethod
+    @property
+    def default_config_name(cls):
+        return f"{cls.name}.conf.toml"
 
     def config_to_dict(self):
         return dataclasses.asdict(self)
 
     @classmethod
     def from_args(cls, parsed_args):
-        raw_config = _get_config_data(parsed_args.config_file, parsed_args.vars)
+        raw_config = _get_config_data(cls.default_config_name, parsed_args.config_file, parsed_args.vars)
         if parsed_args.verbose:
             import coloredlogs
             coloredlogs.install(level='DEBUG', logger=log)
