@@ -43,9 +43,9 @@ TYPE_HOOKS = {
     bool: convert_bool,
     int: int,
     float: float,
-    list[str]: partial(convert_list, convert_type=str),
-    list[int]: partial(convert_list, convert_type=int),
-    list[float]: partial(convert_list, convert_type=float),
+    # list[str]: partial(convert_list, convert_type=str),
+    # list[int]: partial(convert_list, convert_type=int),
+    # list[float]: partial(convert_list, convert_type=float),
 }
 from_dict = partial(dacite.from_dict, config=dacite.Config(strict=True, type_hooks=TYPE_HOOKS, cast=[Enum]))
 

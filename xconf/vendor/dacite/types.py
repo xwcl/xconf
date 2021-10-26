@@ -45,7 +45,8 @@ def extract_origin_collection(collection: Type) -> Type:
 
 
 def is_optional(type_: Type) -> bool:
-    return is_union(type_) and type(None) in extract_generic(type_)
+    members = extract_generic(type_)
+    return is_union(type_) and type(None) in members and len(members) == 2
 
 
 def extract_optional(optional: Type[Optional[T]]) -> T:
