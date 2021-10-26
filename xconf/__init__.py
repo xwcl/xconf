@@ -34,8 +34,10 @@ def convert_bool(x):
 def convert_list(x, convert_type=lambda x: x):
     if ',' in x:
         return [convert_type(y.strip()) for y in x.split(',')]
-    else:
+    elif isinstance(x, str):
         return [convert_type(x.strip())]
+    else:
+        return x
 
 TYPE_HOOKS = {
     bool: convert_bool,
