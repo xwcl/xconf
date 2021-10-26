@@ -311,12 +311,6 @@ class Command:
     @classmethod
     def from_args(cls, parsed_args):
         raw_config = _get_config_data(cls.default_config_name, parsed_args.config_file, parsed_args.vars)
-        if parsed_args.verbose:
-            import coloredlogs
-            coloredlogs.install(level='DEBUG', logger=log)
-            log.debug('Verbose logging enabled')
-        else:
-            log.setLevel(logging.INFO)
         try:
             return from_dict(cls, raw_config)
         except (UnexpectedDataError, MissingValueError) as e:
