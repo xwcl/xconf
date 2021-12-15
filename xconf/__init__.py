@@ -118,11 +118,13 @@ def list_fields(cls, prefix='', help_suffix=''):
         for result in list_one_dataclass_field(fld, prefix, help_suffix):
             yield result
 
-def list_one_dataclass_field(fld, prefix, help_suffix):
+def list_one_dataclass_field(fld : dataclasses.Field, prefix, help_suffix):
     name = fld.name
     field_help = fld.metadata.get('help', '')
     fld_type = fld.type
     default = fld.default
+    if not isinstance(fld.default_factory, dataclasses._MISSING_TYPE):
+        default = fld.default_factory()
     for result in list_one_field(name, fld_type, field_help, prefix, help_suffix, default=default):
         yield result
 
