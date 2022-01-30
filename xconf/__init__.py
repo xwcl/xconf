@@ -43,7 +43,7 @@ TYPE_HOOKS = {
     bool: convert_bool,
     int: int,
     float: float,
-    # list[str]: partial(convert_list, convert_type=str),
+    list[str]: partial(convert_list, convert_type=str),
     # list[int]: partial(convert_list, convert_type=int),
     # list[float]: partial(convert_list, convert_type=float),
 }
