@@ -147,9 +147,21 @@ def list_one_field(name, fld_type, field_help, prefix, help_suffix, default=data
                 for k, v, h in list_fields(mtype, prefix=f'{prefix}{name}.', help_suffix=help_suffix+f' <{mtype.__name__}>'):
                     yield k, v, h
             elif dacite.types.is_generic_collection(mtype):
-                collection_entry_type, = dacite.types.extract_generic(mtype)
-                for k, v, h in list_fields(collection_entry_type, prefix=f'{prefix}{name}[#].', help_suffix=help_suffix+f' <{format_field_type(collection_entry_type)}>'):
-                    yield k, v, h
+                orig_type = dacite.types.extract_origin_collection(mtype)
+                res = dacite.types.extract_generic(mtype)
+                if orig_type is dict: # mapping
+                    collection_key_type, collection_value_type = res
+                    if dataclasses.is_dataclass(collection_value_type):
+                        for k, v, h in list_fields(collection_value_type, prefix=f'{prefix}{name}[<{collection_key_type}>]', help_suffix=help_suffix+f' <{format_field_type(collection_key_type)}>'):
+                            yield k, v, h
+                    else:
+                        pass # output above with primitive types
+                elif orig_type is list:
+                    collection_entry_type, = res
+                    for k, v, h in list_fields(collection_entry_type, prefix=f'{prefix}{name}[#].', help_suffix=help_suffix+f' <{format_field_type(collection_entry_type)}>'):
+                        yield k, v, h
+                else:
+                    pass # unhandled parameterized generic collection (tuples? sets?)
             else:
                 # no need for additional docs for primitive types
                 continue
