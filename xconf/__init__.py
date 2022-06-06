@@ -325,10 +325,40 @@ class Command:
         return dataclasses.asdict(self)
 
     @classmethod
+    def from_config(
+        cls,
+        config_path_or_paths: typing.Union[str,list[str]]=None,
+        config_dict: dict= None,
+        settings_strs: list[str]=None,
+    ):
+        '''Initialize a class instance using config files from disk or a dictionary
+        of options
+
+        Parameters
+        ----------
+        config_path : 
+        '''
+        
+        config_paths = []
+        if isinstance(config_path_or_paths, str):
+            config_paths.append(config_path_or_paths)
+        elif isinstance(config_path_or_paths, list):
+            config_paths.extend(config_path_or_paths)
+        if settings_strs is None:
+            settings_strs = []
+        raw_config = _get_config_data(cls.default_config_name, config_paths, settings_strs)
+        if config_dict is not None:
+            for key, value in config_dict.items():
+                if key in raw_config:
+                    old_val = raw_config[key]
+                    log.info(f"Using provided value {value} for {key} which was set to {old_val} in the loaded config files")
+            raw_config.update(config_dict)
+        return from_dict(cls, raw_config)
+
+    @classmethod
     def from_args(cls, parsed_args):
-        raw_config = _get_config_data(cls.default_config_name, parsed_args.config_file, parsed_args.vars)
         try:
-            return from_dict(cls, raw_config)
+            return cls.from_config(config_path_or_paths=parsed_args.config_file, settings_strs=parsed_args.vars)
         except (UnexpectedDataError, MissingValueError) as e:
             log.error(f"Applying configuration failed with: {e}")
             from pprint import pformat
