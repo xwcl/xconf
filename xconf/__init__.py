@@ -237,7 +237,7 @@ class Dispatcher:
         self.configure_logging('DEBUG' if args.verbose else 'INFO')
         command = args.command_cls.from_args(args)
         if args.dump_config:
-            print(toml.dumps(command.config_to_dict(), encoder=TomlEnumEncoder()))
+            print(config_to_toml(command))
             sys.exit(0)
         return command.main()
 
@@ -308,6 +308,16 @@ def _get_config_data(default_config_name, config_file_paths, cli_args):
 
     log.debug(f'Config attributes provided: {raw_config}')
     return raw_config
+
+def config_to_dict(inst):
+    return dataclasses.asdict(inst)
+
+def dict_to_toml(config_dict):
+    return toml.dumps(config_dict, encoder=TomlEnumEncoder())
+
+def config_to_toml(inst):
+    config_dict = config_to_dict(inst)
+    return dict_to_toml(config_dict)
 
 @dataclass
 class Command:
