@@ -180,6 +180,7 @@ class BaseRayGrid(Command):
     format: GridFormat = field(
         default=GridFormat.FITS, help="Format for grid point output"
     )
+    skip_check: bool = field(default=False, help="When an existing grid is provided, ignore the grid generation parameters and execute this computation for all remaining non-evaluated points in the existing file")
     point_filename_format: str = field(default="point_{:04}", help="Output filename for individual point, sans extension")
     ray: Union[RemoteRayConfig, LocalRayConfig] = field(
         default=LocalRayConfig(), help="Ray distributed framework configuration"
@@ -246,7 +247,7 @@ class BaseRayGrid(Command):
             tbl = empty_grid_tbl
         else:
             raise ValueError(f"Unknown format value {self.format}")
-        if not self.compare_grid_to_checkpoint(tbl, empty_grid_tbl):
+        if not self.skip_check and not self.compare_grid_to_checkpoint(tbl, empty_grid_tbl):
             raise RuntimeError(
                 f"Grid parameters changed but checkpoint file exists, aborting"
             )
