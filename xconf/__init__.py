@@ -113,6 +113,8 @@ def format_field_type(field_type):
         return f'{name}[{members}]'
     return type_name_or_choices(field_type)
 
+fields = dataclasses.fields
+
 def list_fields(cls, prefix='', help_suffix=''):
     for fld in dataclasses.fields(cls):
         for result in list_one_dataclass_field(fld, prefix, help_suffix):
@@ -319,6 +321,11 @@ def config_to_toml(inst):
     config_dict = config_to_dict(inst)
     return dict_to_toml(config_dict)
 
+class ConfigMismatch(Exception):
+    def __init__(self, original_exception: Exception, raw_config: dict):
+        self.original_exception = original_exception
+        self.raw_config = raw_config
+
 @dataclass
 class Command:
     @classmethod
@@ -363,16 +370,20 @@ class Command:
                     old_val = raw_config[key]
                     log.info(f"Using provided value {value} for {key} which was set to {old_val} in the loaded config files")
             raw_config.update(config_dict)
-        return from_dict(cls, raw_config)
+        try:
+            instance = from_dict(cls, raw_config)
+        except (UnexpectedDataError, MissingValueError) as e:
+            raise ConfigMismatch(e, raw_config)
+        return instance
 
     @classmethod
     def from_args(cls, parsed_args):
         try:
             return cls.from_config(config_path_or_paths=parsed_args.config_file, settings_strs=parsed_args.vars)
-        except (UnexpectedDataError, MissingValueError) as e:
-            log.error(f"Applying configuration failed with: {e}")
+        except ConfigMismatch as e:
+            log.error(f"Applying configuration failed with: {e.original_exception}")
             from pprint import pformat
-            log.error(f"File and arguments provided this configuration:\n\n{pformat(raw_config)}\n")
+            log.error(f"File and arguments provided this configuration:\n\n{pformat(e.raw_config)}\n")
             sys.exit(1)
 
     def main(self):
