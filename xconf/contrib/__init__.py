@@ -223,7 +223,7 @@ class BaseRayGrid(Command):
         self.process_grid(tbl, refs)
 
     def _get_output_path(self):
-        return join(self.destination.path, self.output_filename + "." + self.format)
+        return join(self.destination.path, self.output_filename + "." + self.format.value)
 
     def load_checkpoint_or_generate(self, *args):
         empty_grid_tbl = self.generate_grid(*args)
@@ -325,11 +325,16 @@ class BaseRayGrid(Command):
                         len(pending),
                     ),
                 )
+                results_retired = 0
                 for result in ray.get(complete):
                     idx = result[INDEX_COLNAME]
                     tbl[idx] = result
+                    if len(result.shape) > 0:
+                        results_retired += result.shape[0]
+                    else:
+                        results_retired += 1
                 if len(complete):
-                    pbar.update(len(complete))
+                    pbar.update(results_retired)
                     if self.checkpoint_every_x > 0:
                         self.save(tbl)
         self.save(tbl)
