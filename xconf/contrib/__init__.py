@@ -312,10 +312,11 @@ class BaseRayGrid(Command):
         # Wait for results, checkpointing as we go
         pending = pending_refs
         total = len(tbl)
-        restored_from_checkpoint = np.count_nonzero(tbl[TIME_COLNAME] != 0)
+        n_submitted = len(pending_refs)
+        n_completed = np.count_nonzero(tbl[TIME_COLNAME] != 0)
 
         with tqdm(total=total, disable=self.hide_progress_bar, unit="points") as pbar:
-            pbar.update(restored_from_checkpoint)
+            pbar.update(n_completed)
             while pending:
                 complete, pending = ray.wait(
                     pending,
@@ -335,8 +336,10 @@ class BaseRayGrid(Command):
                         results_retired += 1
                 if len(complete):
                     pbar.update(results_retired)
+                    n_completed += results_retired
                     if self.checkpoint_every_x > 0:
                         self.save(tbl)
+                        log.debug(f"Saved {n_completed} of {total} ({n_submitted} submitted)")
         self.save(tbl)
 
     def compare_grid_to_checkpoint(self, checkpoint_tbl, grid_tbl) -> bool:
