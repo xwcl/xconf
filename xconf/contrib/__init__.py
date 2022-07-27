@@ -172,8 +172,8 @@ class GridFormat(enum.Enum):
 
 @config
 class BaseRayGrid(Command):
-    destination: PathConfig = field(
-        default=PathConfig(path="."), help="Directory for output files"
+    destination: DirectoryConfig = field(
+        default=DirectoryConfig(path="."), help="Directory for output files"
     )
     output_filename: str = field(default="grid", help="Output filename to write, sans extension")
     output_extname: str = field(default="grid", help="Output table extension name")
@@ -296,8 +296,10 @@ class BaseRayGrid(Command):
 
         mask = np.ones(len(tbl), dtype=bool)
         if len(self.only_indices):
+            indices_mask = np.zeros(len(tbl), dtype=bool)
             for idx in self.only_indices:
-                mask |= tbl[INDEX_COLNAME] == idx
+                indices_mask |= tbl[INDEX_COLNAME] == idx
+            mask &= indices_mask
         mask &= tbl[TIME_COLNAME] == 0
         return tbl[mask]
 
