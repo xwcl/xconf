@@ -15,6 +15,21 @@ from .vendor import dacite
 from .vendor.dacite import UnexpectedDataError, MissingValueError
 from .vendor import py310_dataclasses as dataclasses
 from collections import defaultdict
+import fsspec
+from .fs import join, get_fs
+
+__all__ = (
+    'field',
+    'config',
+    'config_to_dict',
+    'dict_to_toml',
+    'config_to_toml',
+    'ConfigMismatch',
+    'Command',
+    'PathConfig',
+    'DirectoryConfig',
+    'FileConfig',
+)
 
 log = logging.getLogger(__name__)
 
@@ -126,7 +141,10 @@ def list_one_dataclass_field(fld : dataclasses.Field, prefix, help_suffix):
     fld_type = fld.type
     default = fld.default
     if not isinstance(fld.default_factory, dataclasses._MISSING_TYPE):
-        default = fld.default_factory()
+        try:
+            default = fld.default_factory()
+        except TypeError:
+            raise TypeError(f"Could not instantiate field {fld} from default factory")
     for result in list_one_field(name, fld_type, field_help, prefix, help_suffix, default=default):
         yield result
 
@@ -160,8 +178,11 @@ def list_one_field(name, fld_type, field_help, prefix, help_suffix, default=data
                         pass # output above with primitive types
                 elif orig_type is list:
                     collection_entry_type, = res
-                    for k, v, h in list_fields(collection_entry_type, prefix=f'{prefix}{name}[#].', help_suffix=help_suffix+f' <{format_field_type(collection_entry_type)}>'):
-                        yield k, v, h
+                    if dataclasses.is_dataclass(collection_entry_type):
+                        for k, v, h in list_fields(collection_entry_type, prefix=f'{prefix}{name}[#].', help_suffix=help_suffix+f' <{format_field_type(collection_entry_type)}>'):
+                            yield k, v, h
+                    else:
+                        pass # output above with primitive types
                 else:
                     pass # unhandled parameterized generic collection (tuples? sets?)
             else:
@@ -198,6 +219,18 @@ def list_one_field(name, fld_type, field_help, prefix, help_suffix, default=data
             for k, v, h in list_fields(fld_type, prefix=f'{prefix}{name}.'):
                 yield k, v, h
 
+def add_subparser_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    parser.add_argument(
+        "-c", "--config-file",
+        action="append",
+        default=[],
+        help=f"Path to config file, repeat to merge multiple, last one wins for repeated top-level keys",
+    )
+    parser.add_argument("-h", "--help", action='store_true', help="Print usage information")
+    parser.add_argument("-v", "--verbose", action='store_true', help="Enable debug logging")
+    parser.add_argument("--dump-config", action='store_true', help="Dump final configuration state as TOML and exit")
+    parser.add_argument("vars", nargs='*', help="Config variables set with 'key.key.key=value' notation")
+    return parser
 
 class Dispatcher:
     def __init__(self, commands):
@@ -217,17 +250,7 @@ class Dispatcher:
             subp = subps.add_parser(command_cls.name, add_help=False)
             names_to_subparsers[command_cls.name] = subp
             subp.set_defaults(command_cls=command_cls)
-            default_config_file = command_cls.default_config_name
-            subp.add_argument(
-                "-c", "--config-file",
-                action="append",
-                default=[],
-                help=f"Path to config file, repeat to merge multiple (default: {default_config_file})",
-            )
-            subp.add_argument("-h", "--help", action='store_true', help="Print usage information")
-            subp.add_argument("-v", "--verbose", action='store_true', help="Enable debug logging")
-            subp.add_argument("--dump-config", action='store_true', help="Dump final configuration state as TOML and exit")
-            subp.add_argument("vars", nargs='*', help="Config variables set with 'key.key.key=value' notation")
+            add_subparser_arguments(subp)
 
         args = parser.parse_args()
         if args.command_cls is None:
@@ -353,9 +376,9 @@ class Command:
 
         Parameters
         ----------
-        config_path : 
+        config_path :
         '''
-        
+
         config_paths = []
         if isinstance(config_path_or_paths, str):
             config_paths.append(config_path_or_paths)
@@ -377,6 +400,22 @@ class Command:
         return instance
 
     @classmethod
+    def initialize_standalone(cls):
+        parser = argparse.ArgumentParser(add_help=False)
+        add_subparser_arguments(parser)
+        args = parser.parse_args()
+        if args.help:
+            print_help(cls, parser)
+            sys.exit(0)
+        logging.basicConfig(level='WARN')
+        logging.getLogger('__main__').setLevel('DEBUG' if args.verbose else 'INFO')
+        command = cls.from_args(args)
+        if args.dump_config:
+            print(config_to_toml(command))
+            sys.exit(0)
+        command.main()
+
+    @classmethod
     def from_args(cls, parsed_args):
         try:
             return cls.from_config(config_path_or_paths=parsed_args.config_file, settings_strs=parsed_args.vars)
@@ -388,3 +427,42 @@ class Command:
 
     def main(self):
         raise NotImplementedError("Subclasses must implement main()")
+
+@config
+class PathConfig:
+    path: str = field(help="File path")
+
+    def get_fs(self) -> fsspec.AbstractFileSystem:
+        return get_fs(self.path)
+
+    def exists(self):
+        return self.get_fs().exists(self.path)
+
+
+@config
+class DirectoryConfig(PathConfig):
+    def exists(self, path=None):
+        '''Return whether this directory (or, optionally, the path provided, rooted
+        at this directory) exists'''
+        if path is not None:
+            test_path = self.join(path)
+        else:
+            test_path = self.path
+        return self.get_fs().exists(test_path)
+
+    def join(self, path):
+        return join(self.path, path)
+
+    def ensure_exists(self):
+        destfs = self.get_fs()
+        destfs.makedirs(self.path, exist_ok=True)
+
+    def open_path(self, path, mode="rb"):
+        return self.get_fs().open(join(self.path, path), mode=mode)
+
+
+@config
+class FileConfig(PathConfig):
+    def open(self, mode="rb") -> fsspec.core.OpenFile:
+        fs = get_fs(self.path)
+        return fs.open(self.path, mode)

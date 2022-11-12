@@ -3,17 +3,12 @@ import enum
 from typing import Optional, Union
 import typing
 import os.path
-from urllib.parse import urlparse
 import threading
 import logging
 
 log = logging.getLogger(__name__)
-
-_LOCAL = threading.local()
-_LOCAL.filesystems = {}
-
-from .. import field, config, Command
-
+# also re-exported as backwards compatibility aliases
+from .. import field, config, Command, DirectoryConfig, FileConfig
 
 @config
 class CommonRayConfig:
@@ -21,12 +16,17 @@ class CommonRayConfig:
     env_vars: Optional[dict[str, str]] = field(
         default_factory=dict, help="Environment variables to set for worker processes"
     )
+    threads_per_worker : int = field(
+        default=1,
+        help="Max. number of threads to use per worker (passed in OMP_NUM_THREADS, MKL_NUM_THREADS, and NUMBA_NUM_THREADS)"
+    )
 
     def _get_ray_init_kwargs(self):
+        num_threads = str(self.threads_per_worker)
         env_vars = {
-            "MKL_NUM_THREADS": "1",
-            "OMP_NUM_THREADS": "1",
-            "NUMBA_NUM_THREADS": "1",
+            "MKL_NUM_THREADS": num_threads,
+            "OMP_NUM_THREADS": num_threads,
+            "NUMBA_NUM_THREADS": num_threads,
         }
         if self.setup_function_path is not None:
             env_vars["RAY_USER_SETUP_FUNCTION"] = self.setup_function_path
@@ -79,87 +79,6 @@ class RemoteRayConfig(CommonRayConfig):
 
 
 AnyRayConfig = Union[LocalRayConfig, RemoteRayConfig]
-
-
-def join(*args):
-    """URL-aware path joining, working equally well on file paths and
-    URLs with schemes like https://"""
-    res = urlparse(args[0])
-    new_path = os.path.join(res.path, *args[1:])
-    return args[0].replace(res.path, new_path)
-
-
-def basename(path):
-    """URL-aware path basename, working equally well on file paths and
-    URLs with schemes like https://"""
-    res = urlparse(path)
-    return os.path.basename(res.path)
-
-
-def get_fs(path):
-    """Obtain a concrete fsspec filesystem from a path using
-    the protocol string (if any; defaults to 'file:///') and
-    `_get_kwargs_from_urls` on the associated fsspec class. The same
-    instance will be returned if the same kwargs are used multiple times
-    in the same thread.
-
-    Note: Won't work when kwargs are required but not encoded in the
-    URL.
-    """
-    scheme = urlparse(path).scheme
-    proto = scheme if scheme != "" else "file"
-    cls = fsspec.get_filesystem_class(proto)
-    if hasattr(cls, "_get_kwargs_from_urls"):
-        kwargs = cls._get_kwargs_from_urls(path)
-    else:
-        kwargs = {}
-    key = (proto,) + tuple(kwargs.items())
-    if not hasattr(_LOCAL, "filesystems"):
-        _LOCAL.filesystems = (
-            {}
-        )  # unclear why this is not init at import in dask workers
-    if key not in _LOCAL.filesystems:
-        fs = cls(**kwargs)
-        _LOCAL.filesystems[key] = fs
-    return _LOCAL.filesystems[key]
-
-
-@config
-class PathConfig:
-    path: str = field(help="File path")
-
-    def get_fs(self) -> fsspec.AbstractFileSystem:
-        return get_fs(self.path)
-
-
-@config
-class DirectoryConfig(PathConfig):
-    def exists(self, path=None):
-        '''Return whether this directory (or, optionally, the path provided, rooted
-        at this directory) exists'''
-        if path is not None:
-            test_path = self.join(path)
-        else:
-            test_path = self.path
-        return self.get_fs().exists(test_path)
-
-    def join(self, path):
-        return join(self.path, path)
-
-    def ensure_exists(self):
-        destfs = self.get_fs()
-        destfs.makedirs(self.path, exist_ok=True)
-
-    def open_path(self, path, mode="rb"):
-        return self.get_fs().open(join(self.path, path), mode=mode)
-
-
-@config
-class FileConfig(PathConfig):
-    def open(self, mode="rb") -> fsspec.core.OpenFile:
-        fs = get_fs(self.path)
-        return fs.open(self.path, mode)
-
 
 TIME_COLNAME = "time_total_sec"
 INDEX_COLNAME = "index"
@@ -255,6 +174,7 @@ class BaseRayGrid(Command):
 
     def _save_fits(self, tbl, output_path):
         from astropy.io import fits
+        self.destination.ensure_exists()
         with self.destination.get_fs().open(output_path, "wb") as fh:
             fits.HDUList(
                 [
@@ -300,7 +220,8 @@ class BaseRayGrid(Command):
             for idx in self.only_indices:
                 indices_mask |= tbl[INDEX_COLNAME] == idx
             mask &= indices_mask
-        mask &= tbl[TIME_COLNAME] == 0
+        if not self.recompute:
+            mask &= tbl[TIME_COLNAME] == 0
         return tbl[mask]
 
     def process_grid(self, tbl, pending_refs):
