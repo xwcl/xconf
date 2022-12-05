@@ -400,7 +400,7 @@ class Command:
         return instance
 
     @classmethod
-    def initialize_standalone(cls):
+    def run(cls):
         parser = argparse.ArgumentParser(add_help=False)
         add_subparser_arguments(parser)
         args = parser.parse_args()

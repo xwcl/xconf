@@ -1,4 +1,5 @@
 import logging
+import os.path
 import threading
 from urllib.parse import urlparse
 import fsspec
