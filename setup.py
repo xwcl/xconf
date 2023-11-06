@@ -6,7 +6,8 @@ setup(
     author="Joseph D. Long",
     author_email="jdl@zesty.space",
     install_requires=[
-        "toml>=0.10.2"
+        "toml>=0.10.2",
+        "fsspec>=2023.10.0"
     ],
     packages=find_packages(),
     long_description=open('./README.md').read(),
