@@ -63,6 +63,7 @@ TYPE_HOOKS = {
     # list[float]: partial(convert_list, convert_type=float),
 }
 from_dict = partial(dacite.from_dict, config=dacite.Config(strict=True, type_hooks=TYPE_HOOKS, cast=[Enum]))
+from_dict.__doc__ = dacite.from_dict.__doc__
 
 
 class TomlEnumEncoder(encoder.TomlEncoder):
@@ -267,9 +268,9 @@ class Dispatcher:
         return command.main()
 
 def print_help(cls, parser):
-    print(f"{cls.name}: {cls.__doc__}")
+    print(f"{sys.argv[0]}: {cls.__doc__}")
     parser.print_help()
-    print("configuration keys:")
+    print("\nconfiguration keys:")
     fields = list_fields(cls)
     for field_key, field_type, help_text in fields:
         print(f'  {field_key}')
@@ -282,17 +283,17 @@ def print_help(cls, parser):
             )
             print(wrapped)
 
-def _get_config_data(default_config_name, config_file_paths, cli_args):
+def _get_config_data(default_config_path, config_file_paths, cli_args):
+    raw_config = {}
     if len(config_file_paths):
-        raw_config = {}
         for config_file_path in config_file_paths:
             loaded_config = load_config(config_file_path)
             raw_config.update(loaded_config)
-    else:
+    elif default_config_path is not None:
         try:
-            raw_config = load_config(default_config_name)
+            raw_config = load_config(default_config_path)
         except FileNotFoundError:
-            raw_config = {}
+            pass
 
     for non_flag_arg in cli_args:
         lhs, rhs = non_flag_arg.split('=', 1)  # something.foo.bar=value
