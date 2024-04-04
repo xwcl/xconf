@@ -1,6 +1,7 @@
 """Minimal configuration system to populate dataclasses with a
 mix of config files in TOML and command-line arguments"""
 import textwrap
+import pathlib
 import argparse
 import re
 import sys
@@ -246,10 +247,10 @@ class Dispatcher:
         subps = parser.add_subparsers(title="subcommands", description="valid subcommands")
         names_to_subparsers = {}
         for command_cls in self.commands:
-            if command_cls.name is None or command_cls.name in names_to_subparsers:
+            if command_cls.get_name() is None or command_cls.get_name() in names_to_subparsers:
                 raise Exception(f"Invalid command name for {command_cls}")
-            subp = subps.add_parser(command_cls.name, add_help=False)
-            names_to_subparsers[command_cls.name] = subp
+            subp = subps.add_parser(command_cls.get_name(), add_help=False)
+            names_to_subparsers[command_cls.get_name()] = subp
             subp.set_defaults(command_cls=command_cls)
             add_subparser_arguments(subp)
 
@@ -258,7 +259,7 @@ class Dispatcher:
             parser.print_help()
             sys.exit(1)
         if args.help:
-            print_help(args.command_cls, names_to_subparsers[args.command_cls.name])
+            print_help(args.command_cls, names_to_subparsers[args.command_cls.get_name()])
             sys.exit(0)
         self.configure_logging('DEBUG' if args.verbose else 'INFO')
         command = args.command_cls.from_args(args)
@@ -353,14 +354,17 @@ class ConfigMismatch(Exception):
 @dataclass
 class Command:
     @classmethod
-    @property
-    def name(cls):
+    def get_name(cls):
         name = re.sub(r'(?<!^)(?=[A-Z])', '_', cls.__name__).lower()
         return name
+
     @classmethod
-    @property
-    def default_config_name(cls):
-        return f"{cls.name}.conf.toml"
+    def get_default_config_prefix(cls) -> pathlib.Path:
+        return pathlib.Path('./')
+
+    @classmethod
+    def get_default_config_path(cls) -> pathlib.Path:
+        return cls.get_default_config_prefix() / (cls.get_name() + ".conf")
 
     def config_to_dict(self):
         return dataclasses.asdict(self)
@@ -387,7 +391,7 @@ class Command:
             config_paths.extend(config_path_or_paths)
         if settings_strs is None:
             settings_strs = []
-        raw_config = _get_config_data(cls.default_config_name, config_paths, settings_strs)
+        raw_config = _get_config_data(cls.get_default_config_path(), config_paths, settings_strs)
         if config_dict is not None:
             for key, value in config_dict.items():
                 if key in raw_config:
