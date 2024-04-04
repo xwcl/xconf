@@ -30,7 +30,6 @@ class DemoCommand(xconf.Command):
         print('number_list =', self.number_list)
         print('sequence =', self.sequence)
 
-import coloredlogs
-coloredlogs.install(level='DEBUG', logger=log)
+logging.basicConfig(level='DEBUG')
 d = xconf.Dispatcher([DemoCommand])
 d.main()
