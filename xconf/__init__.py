@@ -162,8 +162,11 @@ def list_one_field(name, fld_type, field_help, prefix, help_suffix, default=data
     prefixed_name = prefix + name
     yield prefixed_name, f'{field_type_str}', field_help
 
-    if dacite.types.is_union(fld_type): # and not dacite.types.is_optional(fld.type):
-        members = dacite.types.extract_generic(fld_type)
+    if dacite.types.is_union(fld_type) or dacite.types.is_generic_collection(fld_type):
+        if dacite.types.is_union(fld_type):
+            members = dacite.types.extract_generic(fld_type)
+        else:
+            members = [fld_type]
         for mtype in members:
             if dataclasses.is_dataclass(mtype):
                 for k, v, h in list_fields(mtype, prefix=f'{prefix}{name}.', help_suffix=help_suffix+f' <{mtype.__name__}>'):
@@ -174,7 +177,7 @@ def list_one_field(name, fld_type, field_help, prefix, help_suffix, default=data
                 if orig_type is dict: # mapping
                     collection_key_type, collection_value_type = res
                     if dataclasses.is_dataclass(collection_value_type):
-                        for k, v, h in list_fields(collection_value_type, prefix=f'{prefix}{name}[<{collection_key_type}>]', help_suffix=help_suffix+f' <{format_field_type(collection_key_type)}>'):
+                        for k, v, h in list_fields(collection_value_type, prefix=f'{prefix}{name}.<{collection_key_type.__name__}>.', help_suffix=help_suffix+f' <{format_field_type(collection_key_type)}>'):
                             yield k, v, h
                     else:
                         pass # output above with primitive types
@@ -190,32 +193,6 @@ def list_one_field(name, fld_type, field_help, prefix, help_suffix, default=data
             else:
                 # no need for additional docs for primitive types
                 continue
-    elif dacite.types.is_generic_collection(fld_type):
-        if dacite.types.extract_origin_collection(fld_type) is list:
-            # already output above for collection
-            pass
-        else:
-            # dict types
-            key_type, val_type = dacite.types.extract_generic(fld_type)
-            if dataclasses.is_dataclass(val_type):
-                # value is a dataclass, recurse into its fields
-                for k, v, h in list_fields(val_type, prefix=f'{prefix}{name}.<{key_type.__name__}>.'):
-                    yield k, v, h
-            else:
-                if dacite.types.is_union(val_type):
-                    members = dacite.types.extract_generic(val_type)
-                    if any(dataclasses.is_dataclass(m) for m in members):
-                        for mtype in members:
-                            if dataclasses.is_dataclass(val_type):
-                                for k, v, h in list_fields(val_type, prefix=f'{prefix}{name}.<{key_type.__name__}>.', help_suffix=help_suffix+f' <{format_field_type(mtype)}>'):
-                                    yield k, v, h
-                            else:
-                                yield f"{prefixed_name}.<{format_field_type(key_type)}>", format_field_type(mtype), field_help
-                    else:
-                        yield f"{prefixed_name}.<{format_field_type(key_type)}>", format_field_type(val_type), field_help
-                elif dacite.types.is_generic_collection(val_type):
-                    # TODO: when the value itself is generic, recurse into it
-                    pass
     else:
         if dataclasses.is_dataclass(fld_type):
             for k, v, h in list_fields(fld_type, prefix=f'{prefix}{name}.'):
