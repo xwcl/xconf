@@ -11,13 +11,11 @@ from enum import Enum
 from functools import partial
 import typing
 from toml import encoder
-from .vendor.py310_dataclasses import dataclass, is_dataclass, asdict
+from .vendor.py310_dataclasses import dataclass
 from .vendor import dacite
 from .vendor.dacite import UnexpectedDataError, MissingValueError
 from .vendor import py310_dataclasses as dataclasses
 from collections import defaultdict
-import fsspec
-from .fs import join, get_fs
 
 __all__ = (
     'field',
@@ -27,9 +25,6 @@ __all__ = (
     'config_to_toml',
     'ConfigMismatch',
     'Command',
-    'PathConfig',
-    'DirectoryConfig',
-    'FileConfig',
 )
 
 log = logging.getLogger(__name__)
@@ -44,24 +39,34 @@ def convert_bool(x):
     elif x.lower() in ('false', 'f', '0'):
         return False
     else:
-        raise ValueError(f"Cannot convert {x} to boolean")
+        raise ValueError(f"Cannot convert {repr(x)} to boolean")
 
 
 def convert_list(x, convert_type=lambda x: x):
-    if ',' in x:
-        return [convert_type(y.strip()) for y in x.split(',')]
-    elif isinstance(x, str):
-        return [convert_type(x.strip())]
+    if isinstance(x, str):
+        # handle escaped commas by temporarily replacing with an escaped value
+        x = x.replace('\,', '\u0001')
+        out = []
+        for y in x.split(','):
+            val = y.replace('\u0001', ',')
+            try:
+                val = convert_type(val)
+                out.append(val)
+            except ValueError:
+                raise ValueError(f"Could not apply type conversion to {repr(val)} from list {repr(x)}")
     else:
-        return x
+        # type conversion was already handled and x is a list at this point
+        assert isinstance(x, list)
+        out = x
+    return out
 
 TYPE_HOOKS = {
     bool: convert_bool,
     int: int,
     float: float,
     list[str]: partial(convert_list, convert_type=str),
-    # list[int]: partial(convert_list, convert_type=int),
-    # list[float]: partial(convert_list, convert_type=float),
+    list[int]: partial(convert_list, convert_type=int),
+    list[float]: partial(convert_list, convert_type=float),
 }
 from_dict = partial(dacite.from_dict, config=dacite.Config(strict=True, type_hooks=TYPE_HOOKS, cast=[Enum]))
 from_dict.__doc__ = dacite.from_dict.__doc__
@@ -96,10 +101,6 @@ class NestedDefaultDict(defaultdict):
             else:
                 out[key] = value
         return out
-
-def fail(message):
-    log.error(message)
-    sys.exit(1)
 
 def field(*args, **kwargs):
     metadata = None
@@ -246,7 +247,7 @@ class Dispatcher:
         return command.main()
 
 def print_help(cls, parser):
-    print(f"{sys.argv[0]}: {cls.__doc__}")
+    print(f"{sys.argv[0]}:")
     parser.print_help()
     print("\nconfiguration keys:")
     fields = list_fields(cls)
@@ -409,42 +410,3 @@ class Command:
 
     def main(self):
         raise NotImplementedError("Subclasses must implement main()")
-
-@config
-class PathConfig:
-    path: str = field(help="File path")
-
-    def get_fs(self) -> fsspec.AbstractFileSystem:
-        return get_fs(self.path)
-
-    def exists(self):
-        return self.get_fs().exists(self.path)
-
-
-@config
-class DirectoryConfig(PathConfig):
-    def exists(self, path=None):
-        '''Return whether this directory (or, optionally, the path provided, rooted
-        at this directory) exists'''
-        if path is not None:
-            test_path = self.join(path)
-        else:
-            test_path = self.path
-        return self.get_fs().exists(test_path)
-
-    def join(self, path):
-        return join(self.path, path)
-
-    def ensure_exists(self):
-        destfs = self.get_fs()
-        destfs.makedirs(self.path, exist_ok=True)
-
-    def open_path(self, path, mode="rb"):
-        return self.get_fs().open(join(self.path, path), mode=mode)
-
-
-@config
-class FileConfig(PathConfig):
-    def open(self, mode="rb") -> fsspec.core.OpenFile:
-        fs = get_fs(self.path)
-        return fs.open(self.path, mode)

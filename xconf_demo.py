@@ -20,6 +20,7 @@ class DemoCommand(xconf.Command):
     should_bar : bool = xconf.field(default=False)
     should_foo : bool = xconf.field(help="Whether demo should foo")
     number_list : list[int] = xconf.field(help="List of favorite numbers")
+    float_list : list[float] = xconf.field(help="List of favorite floating-point numbers")
     sequence : list[ExtendedThingie] = xconf.field(default_factory=list)
 
     def main(self):
@@ -30,6 +31,8 @@ class DemoCommand(xconf.Command):
         print('number_list =', self.number_list)
         print('sequence =', self.sequence)
 
-logging.basicConfig(level='DEBUG')
-d = xconf.Dispatcher([DemoCommand])
-d.main()
+if __name__ == "__main__":
+    import coloredlogs
+    coloredlogs.install(level='DEBUG', logger=log)
+    dispatcher = xconf.Dispatcher([DemoCommand])
+    dispatcher.main()

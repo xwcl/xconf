@@ -2,12 +2,12 @@
 
 ## Demo
 
-An example of how to use `xconf.Command`, `xconf.field`, and `xconf.config` is in `demo.py`. Run it to see its configuration keys.
+An example of how to use `xconf.Command`, `xconf.field`, and `xconf.config` is in `xconf_demo.py`. Run it to see its configuration keys.
 
 ```
-$ python demo.py demo_command -h
+$ python xconf_demo.py demo_command -h
 demo_command: Demo command
-usage: demo.py demo_command [-c CONFIG_FILE] [-h] [-v] [--dump-config] [vars ...]
+usage: xconf_demo.py demo_command [-c CONFIG_FILE] [-h] [-v] [--dump-config] [vars ...]
 
 positional arguments:
   vars                  Config variables set with 'key.key.key=value' notation
@@ -56,10 +56,10 @@ String values are bare (i.e. no quotation marks around `value`). Boolean values 
 
 ### Structuring the command
 
-See `demo.py` for an example. Note that commands must subclass `xconf.Command` *and* apply the `@xconf.config` decorator. Options are defined by a hierarchy of dataclasses. (For uninteresting reasons, they aren't *strictly speaking* `import dataclass` dataclasses.)
+See `xconf_demo.py` for an example. Note that commands must subclass `xconf.Command` *and* apply the `@xconf.config` decorator. Options are defined by a hierarchy of dataclasses. (For uninteresting reasons, they aren't *strictly speaking* `import dataclass` dataclasses.)
 
 ## License
 
-All code outside `xconf/vendor/` is provided under the terms of the [MIT License](./LICENSE), except for `demo.py` and `demo_command.conf.toml`, which are released into the public domain for you to build off of.
+All code outside `xconf/vendor/` is provided under the terms of the [MIT License](./LICENSE), except for `xconf_demo.py` and `demo_command.conf.toml`, which are released into the public domain for you to build off of.
 
 Note that code under `xconf/vendor/` is used under the terms of the licenses listed there.

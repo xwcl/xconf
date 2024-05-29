@@ -2,13 +2,51 @@ import fsspec
 import enum
 from typing import Optional, Union
 import typing
-import os.path
-import threading
 import logging
 
 log = logging.getLogger(__name__)
 # also re-exported as backwards compatibility aliases
-from .. import field, config, Command, DirectoryConfig, FileConfig
+from .. import field, config, Command
+from ..fs import join, get_fs
+
+@config
+class PathConfig:
+    path: str = field(help="File path")
+
+    def get_fs(self) -> fsspec.AbstractFileSystem:
+        return get_fs(self.path)
+
+    def exists(self):
+        return self.get_fs().exists(self.path)
+
+
+@config
+class DirectoryConfig(PathConfig):
+    def exists(self, path=None):
+        '''Return whether this directory (or, optionally, the path provided, rooted
+        at this directory) exists'''
+        if path is not None:
+            test_path = self.join(path)
+        else:
+            test_path = self.path
+        return self.get_fs().exists(test_path)
+
+    def join(self, path):
+        return join(self.path, path)
+
+    def ensure_exists(self):
+        destfs = self.get_fs()
+        destfs.makedirs(self.path, exist_ok=True)
+
+    def open_path(self, path, mode="rb"):
+        return self.get_fs().open(join(self.path, path), mode=mode)
+
+
+@config
+class FileConfig(PathConfig):
+    def open(self, mode="rb") -> fsspec.core.OpenFile:
+        fs = get_fs(self.path)
+        return fs.open(self.path, mode)
 
 @config
 class CommonRayConfig:
@@ -280,3 +318,4 @@ class BaseRayGrid(Command):
         indicate it's been processed.
         """
         raise NotImplementedError("Subclasses must implement launch_grid()")
+
