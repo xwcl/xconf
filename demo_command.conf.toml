@@ -2,6 +2,7 @@ either_one = 1
 should_foo = false
 number_list = [1,2,3]
 float_list = [2.0, 4.0, 8.0]
+str_list = ["foo", "bar"]
 
 [collections.first]
 name = "First collection"

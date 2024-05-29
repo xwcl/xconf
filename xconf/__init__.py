@@ -45,7 +45,7 @@ def convert_bool(x):
 def convert_list(x, convert_type=lambda x: x):
     if isinstance(x, str):
         # handle escaped commas by temporarily replacing with an escaped value
-        x = x.replace('\,', '\u0001')
+        x = x.replace(r'\,', '\u0001')
         out = []
         for y in x.split(','):
             val = y.replace('\u0001', ',')

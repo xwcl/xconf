@@ -21,6 +21,7 @@ class DemoCommand(xconf.Command):
     should_foo : bool = xconf.field(help="Whether demo should foo")
     number_list : list[int] = xconf.field(help="List of favorite numbers")
     float_list : list[float] = xconf.field(help="List of favorite floating-point numbers")
+    str_list : list[str] = xconf.field(help="List of favorite floating-point numbers")
     sequence : list[ExtendedThingie] = xconf.field(default_factory=list)
 
     def main(self):

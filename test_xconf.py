@@ -14,5 +14,5 @@ def test_xconf_demo():
     assert inst.should_foo
     inst = xconf_demo.DemoCommand.from_config(config_path_or_paths=['./demo_command.conf.toml'], settings_strs=['should_foo=True'])
     assert inst.should_foo
-    inst = xconf_demo.DemoCommand.from_config(config_path_or_paths=['./demo_command.conf.toml'], settings_strs=['float_list=4,8'])
-    assert inst.float_list == [4.0, 8.0]
+    inst = xconf_demo.DemoCommand.from_config(config_path_or_paths=['./demo_command.conf.toml'], settings_strs=[r'str_list=foo_with\,comma,other'])
+    assert inst.str_list == ['foo_with,comma', 'other']
