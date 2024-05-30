@@ -178,7 +178,7 @@ def list_one_field(name, fld_type, field_help, prefix, help_suffix, default=data
                 if orig_type is dict: # mapping
                     collection_key_type, collection_value_type = res
                     if dataclasses.is_dataclass(collection_value_type):
-                        for k, v, h in list_fields(collection_value_type, prefix=f'{prefix}{name}.<{collection_key_type.__name__}>.', help_suffix=help_suffix+f' <{format_field_type(collection_key_type)}>'):
+                        for k, v, h in list_fields(collection_value_type, prefix=f'{prefix}{name}.<{collection_key_type.__name__}>.', help_suffix=help_suffix+f' <{format_field_type(collection_value_type)}>'):
                             yield k, v, h
                     else:
                         pass # output above with primitive types
