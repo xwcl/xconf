@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xconf"
+version = "0.0.3"
+description = "Turns TOML files and command-line arguments into dataclasses for config"
+authors = [
+    { name = "Joseph D. Long", email = "jdl@zesty.space" }
+]
+dependencies = [
+    "toml>=0.10.2",
+    "fsspec>=2023.10.0"
+]
+readme = "README.md"
+
+[tool.setuptools]
+packages = ["xconf"]
