@@ -1,4 +1,4 @@
-from ..py310_dataclasses import InitVar
+from dataclasses import InitVar
 from typing import Type, Any, Optional, Union, Collection, TypeVar, Dict, Callable, Mapping, List, Tuple
 
 T = TypeVar("T", bound=Any)

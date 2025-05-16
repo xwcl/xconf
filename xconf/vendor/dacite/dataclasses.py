@@ -1,4 +1,4 @@
-from ..py310_dataclasses import Field, MISSING, _FIELDS, _FIELD, _FIELD_INITVAR  # type: ignore
+from dataclasses import Field, MISSING, _FIELDS, _FIELD, _FIELD_INITVAR  # type: ignore
 from typing import Type, Any, TypeVar, List
 
 from .data import Data

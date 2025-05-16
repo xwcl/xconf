@@ -1,4 +1,4 @@
-from ..py310_dataclasses import dataclass, field
+from dataclasses import dataclass, field
 from typing import Dict, Any, Callable, Optional, Type, List
 
 

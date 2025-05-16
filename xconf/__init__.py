@@ -11,11 +11,10 @@ from enum import Enum
 from functools import partial
 import typing
 from toml import encoder
-from .vendor.py310_dataclasses import dataclass
 from .vendor import dacite
 from .vendor.dacite import UnexpectedDataError, MissingValueError
-from .vendor import py310_dataclasses as dataclasses
 from collections import defaultdict
+import dataclasses
 
 __all__ = (
     'field',
@@ -29,7 +28,7 @@ __all__ = (
 
 log = logging.getLogger(__name__)
 
-config = partial(dataclass, kw_only=True)
+config = partial(dataclasses.dataclass, kw_only=True)
 
 def convert_bool(x):
     if x in (True, False):
@@ -330,7 +329,7 @@ class ConfigMismatch(Exception):
         self.original_exception = original_exception
         self.raw_config = raw_config
 
-@dataclass
+@dataclasses.dataclass
 class Command:
     @classmethod
     def get_name(cls):

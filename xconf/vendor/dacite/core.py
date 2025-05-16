@@ -1,5 +1,5 @@
 import copy
-from ..py310_dataclasses import is_dataclass
+from dataclasses import is_dataclass
 from itertools import zip_longest
 from typing import TypeVar, Type, Optional, get_type_hints, Mapping, Any
 
