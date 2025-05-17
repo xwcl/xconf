@@ -66,7 +66,6 @@ TYPE_HOOKS = {
     list[str]: partial(convert_list, convert_type=str),
     list[int]: partial(convert_list, convert_type=int),
     list[float]: partial(convert_list, convert_type=float),
-    pathlib.Path: pathlib.Path,
 }
 from_dict = partial(dacite.from_dict, config=dacite.Config(strict=True, type_hooks=TYPE_HOOKS, cast=[Enum]))
 from_dict.__doc__ = dacite.from_dict.__doc__
