@@ -130,10 +130,12 @@ def format_field_type(field_type):
         return f'{name}[{members}]'
     return type_name_or_choices(field_type)
 
-fields = dataclasses.fields
+def fields(class_or_instance):
+    fields = dataclasses.fields(class_or_instance)
+    return tuple(f for f in fields if f.init)
 
 def list_fields(cls, prefix='', help_suffix=''):
-    for fld in dataclasses.fields(cls):
+    for fld in fields(cls):
         for result in list_one_dataclass_field(fld, prefix, help_suffix):
             yield result
 
