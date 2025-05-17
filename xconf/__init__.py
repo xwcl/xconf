@@ -245,7 +245,7 @@ class Dispatcher:
         if args.dump_config:
             print(config_to_toml(command))
             sys.exit(0)
-        return command.main()
+        return command._wrap_main()
 
 def print_help(cls, parser):
     print(f"{sys.argv[0]}:")
@@ -397,7 +397,7 @@ class Command:
         if args.dump_config:
             print(config_to_toml(command))
             sys.exit(0)
-        command.main()
+        command._wrap_main()
 
     @classmethod
     def from_args(cls, parsed_args):
@@ -409,5 +409,28 @@ class Command:
             log.error(f"File and arguments provided this configuration:\n\n{pformat(e.raw_config)}\n")
             sys.exit(1)
 
+    def _wrap_main(self):
+        """Wrap main() to allow `setup` and `teardown` hooks.
+        """
+        self.setup()
+        try:
+            self.main()
+        finally:
+            self.teardown()
+
+
+    def setup(self):
+        """Runs before main() to perform any checks or setup that must run before `main`
+        (e.g. to provide an extension point for a derived class that is in turn a base class
+        for others to inherit from, since __post_init__ is tricky)
+        """
+        pass
+
     def main(self):
         raise NotImplementedError("Subclasses must implement main()")
+
+    def teardown(self):
+        """The post-main counterpart to `setup` that runs in a ``finally:``
+        block before exiting
+        """
+        pass
