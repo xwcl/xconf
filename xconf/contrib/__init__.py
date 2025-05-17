@@ -130,7 +130,7 @@ class GridFormat(enum.Enum):
 @config
 class BaseRayGrid(Command):
     destination: DirectoryConfig = field(
-        default=DirectoryConfig(path="."), help="Directory for output files"
+        default_factory=lambda: DirectoryConfig(path="."), help="Directory for output files"
     )
     output_filename: str = field(default="grid", help="Output filename to write, sans extension")
     output_extname: str = field(default="grid", help="Output table extension name")
@@ -140,7 +140,7 @@ class BaseRayGrid(Command):
     skip_check: bool = field(default=False, help="When an existing grid is provided, ignore the grid generation parameters and execute this computation for all remaining non-evaluated points in the existing file")
     point_filename_format: str = field(default="point_{:04}", help="Output filename for individual point, sans extension")
     ray: Union[RemoteRayConfig, LocalRayConfig] = field(
-        default=LocalRayConfig(), help="Ray distributed framework configuration"
+        default_factory=lambda: LocalRayConfig(), help="Ray distributed framework configuration"
     )
     only_indices: list[int] = field(
         default_factory=list, help="List of grid indices to process"
