@@ -16,5 +16,13 @@ dependencies = [
 ]
 readme = "README.md"
 
+[project.optional-dependencies]
+dev = [
+    "pytest"
+]
+all = [
+    "ray", "fsspec"
+]
+
 [tool.setuptools]
 packages = ["xconf"]
