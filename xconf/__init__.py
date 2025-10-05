@@ -71,12 +71,17 @@ from_dict = partial(dacite.from_dict, config=dacite.Config(strict=True, type_hoo
 from_dict.__doc__ = dacite.from_dict.__doc__
 
 
-class TomlEnumEncoder(encoder.TomlEncoder):
-    """Encode to TOML, replacing values that are Enum subclasses with their value attribute"""
+class CustomTomlEncoder(encoder.TomlEncoder):
+    """Encode to TOML, with changes:
+     - replacing values that are Enum subclasses with their value attribute
+     - replace pathlib Path objects with their POSIX string representation
+    """
 
     def dump_value(self, v):
         if isinstance(v, Enum):
             return super().dump_value(v.value)
+        if isinstance(v, pathlib.Path):
+            return super().dump_value(v.as_posix())
         return super().dump_value(v)
 
 def load_config(filepath):
@@ -319,7 +324,7 @@ def config_to_dict(inst):
     return dataclasses.asdict(inst)
 
 def dict_to_toml(config_dict):
-    return toml.dumps(config_dict, encoder=TomlEnumEncoder())
+    return toml.dumps(config_dict, encoder=CustomTomlEncoder())
 
 def config_to_toml(inst):
     config_dict = config_to_dict(inst)
