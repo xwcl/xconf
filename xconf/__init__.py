@@ -420,6 +420,8 @@ class Command:
         self.setup()
         try:
             self.main()
+        except Exception as e:
+            log.exception(f"Aborting due to exception: {e}")
         finally:
             self.teardown()
 
