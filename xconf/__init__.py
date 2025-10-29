@@ -356,8 +356,9 @@ class Command:
     @classmethod
     def from_config(
         cls,
+        *,
         config_path_or_paths: typing.Union[str,list[str]]=None,
-        config_dict: dict= None,
+        config_dict: dict=None,
         settings_strs: list[str]=None,
     ):
         '''Initialize a class instance using config files from disk or a dictionary
@@ -373,6 +374,7 @@ class Command:
             config_paths.append(config_path_or_paths)
         elif isinstance(config_path_or_paths, list):
             config_paths.extend(config_path_or_paths)
+
         if settings_strs is None:
             settings_strs = []
         raw_config = _get_config_data(cls.get_default_config_path(), config_paths, settings_strs)
